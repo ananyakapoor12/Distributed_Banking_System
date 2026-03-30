@@ -29,22 +29,22 @@ bool AccountStore::auth(BankAccount acc, int account_num, const std::string &nam
     return acc.holder_name == name && acc.password == password;
 }
 
-Result<bool> AccountStore::close_account(int account_num, const std::string &name, const std::string &password)
+Result<BankAccountBalance> AccountStore::close_account(int account_num, const std::string &name, const std::string &password)
 {
     std::cout << "[CLOSE_ACCOUNT] account_num=" << account_num << " name=" << name << std::endl;
     auto it = accounts_.find(account_num);
     if (it == accounts_.end()) {
         std::cout << "[CLOSE_ACCOUNT] FAILED: account not found" << std::endl;
-        return Result<bool>::fail(ErrorCode::ACCOUNT_NOT_FOUND);
+        return Result<BankAccountBalance>::fail(ErrorCode::ACCOUNT_NOT_FOUND);
     }
     const BankAccount &acc = it->second;
     if (!auth(acc, account_num, name, password)) {
         std::cout << "[CLOSE_ACCOUNT] FAILED: auth failed" << std::endl;
-        return Result<bool>::fail(ErrorCode::AUTH_FAILED);
+        return Result<BankAccountBalance>::fail(ErrorCode::AUTH_FAILED);
     }
     accounts_.erase(account_num);
     std::cout << "[CLOSE_ACCOUNT] SUCCESS: account_num=" << account_num << " closed" << std::endl;
-    return Result<bool>::success(true);
+    return Result<BankAccountBalance>::success(acc.balance);
 }
 
 Result<BankAccountBalance> AccountStore::deposit(int account_num, const std::string &name, const std::string &password, int currency, float amt)
