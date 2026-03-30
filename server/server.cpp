@@ -9,6 +9,12 @@
 #include "marshaller.h"
 #include "account_store.h"
 
+#ifdef DEBUG
+#define DBG(x) std::cout << x << std::endl
+#else
+#define DBG(x)
+#endif
+
 
 int main(int argc, char* argv[])
 {
@@ -16,7 +22,7 @@ int main(int argc, char* argv[])
     if (argc >= 2) port = std::atoi(argv[1]);
     AccountStore bank;
 
-    std::cout << "Starting server on port " << port << std::endl;
+    DBG("Starting server on port " << port);
 
     UDPSocket sock(port);
 
@@ -54,12 +60,12 @@ int main(int argc, char* argv[])
                 std::time_t now_t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
                 std::string now_str(std::ctime(&now_t));
                 now_str.pop_back();
-                std::cout << "[MONITOR] Expired: " << it->first << " at " << now_str << std::endl;
+                DBG("[MONITOR] Expired: " << it->first << " at " << now_str);
                 it = monitorClients.erase(it);
                 continue;
             }
             sock.send_to(cb, cb_off, it->second.addr);
-            std::cout << "[MONITOR] Notified " << it->first << std::endl;
+            DBG("[MONITOR] Notified " << it->first);
             ++it;
         }
     };
@@ -102,9 +108,11 @@ int main(int argc, char* argv[])
             if (cached != ip_it->second.end()) {
                 const std::string& cached_reply = cached->second;
                 sock.send_to(reinterpret_cast<const uint8_t*>(cached_reply.data()), cached_reply.size(), client_addr);
+#ifdef DEBUG
                 std::cout << "[CACHE HIT] ip=" << ipStr << " bytes=";
                 for (unsigned char c : cached_reply) std::cout << std::hex << (int)c << " ";
                 std::cout << std::dec << std::endl;
+#endif
                 cache_hit = true;
             }
         }
@@ -152,9 +160,11 @@ int main(int argc, char* argv[])
                 sock.send_to(reply, res_offset, client_addr);
 
                 prevRequestData[std::string(ipStr)][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
+#ifdef DEBUG
                 std::cout << "[CACHED] ip=" << ipStr << " bytes=";
                 for (int i = 0; i < res_offset; i++) std::cout << std::hex << (int)reply[i] << " ";
                 std::cout << std::dec << std::endl;
+#endif
 
                 break;
             }
@@ -195,9 +205,11 @@ int main(int argc, char* argv[])
                 sock.send_to(reply, res_offset, client_addr);
 
                 prevRequestData[std::string(ipStr)][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
+#ifdef DEBUG
                 std::cout << "[CACHED] ip=" << ipStr << " bytes=";
                 for (int i = 0; i < res_offset; i++) std::cout << std::hex << (int)reply[i] << " ";
                 std::cout << std::dec << std::endl;
+#endif
 
                 break;
             }
@@ -252,9 +264,11 @@ int main(int argc, char* argv[])
                 sock.send_to(reply, res_offset, client_addr);
                 
                 prevRequestData[std::string(ipStr)][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
+#ifdef DEBUG
                 std::cout << "[CACHED] ip=" << ipStr << " bytes=";
                 for (int i = 0; i < res_offset; i++) std::cout << std::hex << (int)reply[i] << " ";
                 std::cout << std::dec << std::endl;
+#endif
                 
                 break;
             }
@@ -314,9 +328,11 @@ int main(int argc, char* argv[])
                 sock.send_to(reply, res_offset, client_addr);
                 
                 prevRequestData[std::string(ipStr)][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
+#ifdef DEBUG
                 std::cout << "[CACHED] ip=" << ipStr << " bytes=";
                 for (int i = 0; i < res_offset; i++) std::cout << std::hex << (int)reply[i] << " ";
                 std::cout << std::dec << std::endl;
+#endif
                 
                 break;
             }
@@ -345,10 +361,10 @@ int main(int argc, char* argv[])
                         std::time_t start_t  = std::chrono::system_clock::to_time_t(start_sys);
                         std::string start_str(std::ctime(&start_t));
                         start_str.pop_back();   // remove trailing newline added by ctime
-                        std::cout << "[MONITOR] Registered " << ipStr << ":"
-                                  << ntohs(client_addr.sin_port)
-                                  << " for " << args.duration << "s"
-                                  << " | start=" << start_str << std::endl;
+                        DBG("[MONITOR] Registered " << ipStr << ":"
+                            << ntohs(client_addr.sin_port)
+                            << " for " << args.duration << "s"
+                            << " | start=" << start_str);
                         write_byte(reply, res_offset, (uint8_t)Status::SUCCESS);
                     }
                 }
@@ -433,9 +449,11 @@ int main(int argc, char* argv[])
                 sock.send_to(reply, res_offset, client_addr);
                 
                 prevRequestData[std::string(ipStr)][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
+#ifdef DEBUG
                 std::cout << "[CACHED] ip=" << ipStr << " bytes=";
                 for (int i = 0; i < res_offset; i++) std::cout << std::hex << (int)reply[i] << " ";
                 std::cout << std::dec << std::endl;
+#endif
                 
                 break;
             }
@@ -479,9 +497,11 @@ int main(int argc, char* argv[])
                 }
                 sock.send_to(reply, res_offset, client_addr);
                 prevRequestData[std::string(ipStr)][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
+#ifdef DEBUG
                 std::cout << "[CACHED] ip=" << ipStr << " bytes=";
                 for (int i = 0; i < res_offset; i++) std::cout << std::hex << (int)reply[i] << " ";
                 std::cout << std::dec << std::endl;
+#endif
                 break;
             }
             default:
@@ -489,7 +509,7 @@ int main(int argc, char* argv[])
                 continue;
         }
 
-        std::cout << std::endl;
+        DBG("");
 
 
     }
