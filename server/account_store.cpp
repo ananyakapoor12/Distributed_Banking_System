@@ -7,13 +7,9 @@
 #define DBG(x)
 #endif
 
-Result<int> AccountStore::open_account(const std::string &name, const std::string &password, int currency, float balance)
+Result<int> AccountStore::open_account(const std::string &name, const std::string &password, Currency currency, float balance)
 {
     DBG("[OPEN_ACCOUNT] name=" << name << " currency=" << currency << " balance=" << balance);
-    if (!is_valid_currency(currency)) {
-        DBG("[OPEN_ACCOUNT] FAILED: invalid currency " << currency);
-        return Result<int>::fail(ErrorCode::INVALID_CURRENCY);
-    }
     if (balance <= 0) {
         DBG("[OPEN_ACCOUNT] FAILED: invalid amount " << balance);
         return Result<int>::fail(ErrorCode::INVALID_AMOUNT);
@@ -53,7 +49,7 @@ Result<BankAccountBalance> AccountStore::close_account(int account_num, const st
     return Result<BankAccountBalance>::success(acc.balance);
 }
 
-Result<BankAccountBalance> AccountStore::deposit(int account_num, const std::string &name, const std::string &password, int currency, float amt)
+Result<BankAccountBalance> AccountStore::deposit(int account_num, const std::string &name, const std::string &password, Currency currency, float amt)
 {
     DBG("[DEPOSIT] account_num=" << account_num << " name=" << name << " currency=" << currency << " amt=" << amt);
     auto it = accounts_.find(account_num);
@@ -81,7 +77,7 @@ Result<BankAccountBalance> AccountStore::deposit(int account_num, const std::str
     }
 }
 
-Result<BankAccountBalance> AccountStore::withdraw(int account_num, const std::string &name, const std::string &password, int currency, float amt)
+Result<BankAccountBalance> AccountStore::withdraw(int account_num, const std::string &name, const std::string &password, Currency currency, float amt)
 {
     DBG("[WITHDRAW] account_num=" << account_num << " name=" << name << " currency=" << currency << " amt=" << amt);
     auto it = accounts_.find(account_num);
@@ -133,7 +129,7 @@ Result<BankAccountBalance> AccountStore::check_balance(int account_num, const st
     return Result<BankAccountBalance>::success(acc.balance);
 }
 
-Result<BankAccountBalance> AccountStore::transfer(int sender_account_num, const std::string &sender_name, const std::string &password, int receiver_account_num, const std::string &receiver_name, int currency, float amt)
+Result<BankAccountBalance> AccountStore::transfer(int sender_account_num, const std::string &sender_name, const std::string &password, int receiver_account_num, const std::string &receiver_name, Currency currency, float amt)
 {
     DBG("[TRANSFER] sender_account_num=" << sender_account_num << " sender_name=" << sender_name
         << " receiver_account_num=" << receiver_account_num << " receiver_name=" << receiver_name

@@ -23,17 +23,29 @@ bool parse_header(const uint8_t* buf, int buf_len, int& offset, RequestHeader& o
         return false;
     }
 
-    out.msg_type = static_cast<MessageType>(read_byte(buf, offset, buf_len));
+    uint8_t raw_msg_type = read_byte(buf, offset, buf_len);
+    if (raw_msg_type > 2)
+    {
+        std::cerr << "parse_header: unknown message type " << (int)raw_msg_type << std::endl;
+        return false;
+    }
+    out.msg_type = static_cast<MessageType>(raw_msg_type);
 
     if (out.msg_type != MessageType::REQUEST)
     {
         std::cerr << "parse_header: unexpected message type "
-                  << (int)out.msg_type << std::endl;
+                  << (int)raw_msg_type << std::endl;
         return false;
     }
 
     read_request_id(buf, offset, buf_len, out.request_id);
-    out.opcode = static_cast<Opcode>(read_byte(buf, offset, buf_len));
+    uint8_t raw_opcode = read_byte(buf, offset, buf_len);
+    if (raw_opcode < 1 || raw_opcode > 7)
+    {
+        std::cerr << "parse_header: unknown opcode " << (int)raw_opcode << std::endl;
+        return false;
+    }
+    out.opcode = static_cast<Opcode>(raw_opcode);
     return true;
 }
 
@@ -44,16 +56,18 @@ bool parse_open_account(const uint8_t* buf, int buf_len, int& offset, OpenAccoun
 {
     try {
         out.password = read_fixed_string(buf, offset, buf_len, PASSWORD_LEN);
-        out.currency = read_byte(buf, offset, buf_len);
+        uint8_t raw_currency = read_byte(buf, offset, buf_len);
+        if (raw_currency > 8) throw std::out_of_range("invalid currency: " + std::to_string(raw_currency));
+        out.currency = static_cast<Currency>(raw_currency);
         out.balance  = read_float(buf, offset, buf_len);
         out.name     = read_string(buf, offset, buf_len);
     } catch (const std::out_of_range& e) {
         std::cerr << "parse_open_account: " << e.what() << std::endl;
         return false;
     }
-    DBG("[OPEN_ACCOUNT] name=" << out.name
+    DBG("[OPEN_ACCOUNT PARSER] name=" << out.name
         << " password=" << out.password
-        << " currency=" << (int)out.currency
+        << " currency=" << out.currency
         << " balance=" << out.balance);
     return true;
 }
@@ -68,7 +82,7 @@ bool parse_close_account(const uint8_t* buf, int buf_len, int& offset, CloseAcco
         std::cerr << "parse_close_account: " << e.what() << std::endl;
         return false;
     }
-    DBG("[CLOSE_ACCOUNT] account_num=" << out.account_num
+    DBG("[CLOSE_ACCOUNT PARSER] account_num=" << out.account_num
         << " name=" << out.name
         << " password=" << out.password);
     return true;
@@ -79,17 +93,19 @@ bool parse_deposit(const uint8_t* buf, int buf_len, int& offset, DepositArgs& ou
     try {
         out.account_num = read_uint(buf, offset, buf_len);
         out.password    = read_fixed_string(buf, offset, buf_len, PASSWORD_LEN);
-        out.currency    = read_byte(buf, offset, buf_len);
+        uint8_t raw_currency = read_byte(buf, offset, buf_len);
+        if (raw_currency > 8) throw std::out_of_range("invalid currency: " + std::to_string(raw_currency));
+        out.currency    = static_cast<Currency>(raw_currency);
         out.amount      = read_float(buf, offset, buf_len);
         out.name        = read_string(buf, offset, buf_len);
     } catch (const std::out_of_range& e) {
         std::cerr << "parse_deposit: " << e.what() << std::endl;
         return false;
     }
-    DBG("[DEPOSIT] account_num=" << out.account_num
+    DBG("[DEPOSIT PARSER] account_num=" << out.account_num
         << " name=" << out.name
         << " password=" << out.password
-        << " currency=" << (int)out.currency
+        << " currency=" << out.currency
         << " amount=" << out.amount);
     return true;
 }
@@ -99,17 +115,19 @@ bool parse_withdraw(const uint8_t* buf, int buf_len, int& offset, WithdrawArgs& 
     try {
         out.account_num = read_uint(buf, offset, buf_len);
         out.password    = read_fixed_string(buf, offset, buf_len, PASSWORD_LEN);
-        out.currency    = read_byte(buf, offset, buf_len);
+        uint8_t raw_currency = read_byte(buf, offset, buf_len);
+        if (raw_currency > 8) throw std::out_of_range("invalid currency: " + std::to_string(raw_currency));
+        out.currency    = static_cast<Currency>(raw_currency);
         out.amount      = read_float(buf, offset, buf_len);
         out.name        = read_string(buf, offset, buf_len);
     } catch (const std::out_of_range& e) {
         std::cerr << "parse_withdraw: " << e.what() << std::endl;
         return false;
     }
-    DBG("[WITHDRAW] account_num=" << out.account_num
+    DBG("[WITHDRAW PARSER] account_num=" << out.account_num
         << " name=" << out.name
         << " password=" << out.password
-        << " currency=" << (int)out.currency
+        << " currency=" << out.currency
         << " amount=" << out.amount);
     return true;
 }
@@ -122,7 +140,7 @@ bool parse_monitor(const uint8_t* buf, int buf_len, int& offset, MonitorArgs& ou
         std::cerr << "parse_monitor: " << e.what() << std::endl;
         return false;
     }
-    DBG("[MONITOR] duration=" << out.duration << "s");
+    DBG("[MONITOR PARSER] duration=" << out.duration << "s");
     return true;
 }
 
@@ -133,18 +151,20 @@ bool parse_transfer(const uint8_t* buf, int buf_len, int& offset, TransferArgs& 
         out.sender_password      = read_fixed_string(buf, offset, buf_len, PASSWORD_LEN);
         out.receiver_account_num = read_uint(buf, offset, buf_len);
         out.amount               = read_float(buf, offset, buf_len);
-        out.currency             = read_byte(buf, offset, buf_len);
+        uint8_t raw_currency = read_byte(buf, offset, buf_len);
+        if (raw_currency > 8) throw std::out_of_range("invalid currency: " + std::to_string(raw_currency));
+        out.currency             = static_cast<Currency>(raw_currency);
         out.sender_name          = read_string(buf, offset, buf_len);
         out.receiver_name        = read_string(buf, offset, buf_len);
     } catch (const std::out_of_range& e) {
         std::cerr << "parse_transfer: " << e.what() << std::endl;
         return false;
     }
-    DBG("[TRANSFER] sender_account_num=" << out.sender_account_num
+    DBG("[TRANSFER PARSER] sender_account_num=" << out.sender_account_num
         << " sender_name=" << out.sender_name
         << " sender_password=" << out.sender_password
         << " receiver_account_num=" << out.receiver_account_num
-        << " currency=" << (int)out.currency
+        << " currency=" << out.currency
         << " amount=" << out.amount);
     return true;
 }
@@ -159,7 +179,7 @@ bool parse_check_balance(const uint8_t* buf, int buf_len, int& offset, CheckBala
         std::cerr << "parse_check_balance: " << e.what() << std::endl;
         return false;
     }
-    DBG("[CHECK_BALANCE] account_num=" << out.account_num
+    DBG("[CHECK_BALANCE PARSER] account_num=" << out.account_num
         << " name=" << out.name
         << " password=" << out.password);
     return true;

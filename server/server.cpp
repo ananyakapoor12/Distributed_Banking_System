@@ -50,7 +50,7 @@ int main(int argc, char* argv[])
 
     auto notify_monitors = [&](Opcode trigger, int account_num,
                                const std::string &holder_name,
-                               float balance, int currency,
+                               float balance, Currency currency,
                                const std::string &description)
     {
         auto now = std::chrono::steady_clock::now();
@@ -148,11 +148,6 @@ int main(int argc, char* argv[])
                         write_byte(reply, res_offset, (uint8_t)Status::SUCCESS);
                         write_uint(reply, res_offset, (uint32_t)res.value);
                         notify_monitors(Opcode::OPEN_ACCOUNT, res.value, args.name, args.balance, args.currency, "New account opened.");
-                    }
-                    else if (res.code == ErrorCode::INVALID_CURRENCY)
-                    {
-                        write_byte(reply, res_offset, (uint8_t)Status::INVALID_CURRENCY);
-                        write_string(reply, res_offset, "Invalid Currency chosen");
                     }
                     else if (res.code == ErrorCode::INVALID_AMOUNT)
                     {
