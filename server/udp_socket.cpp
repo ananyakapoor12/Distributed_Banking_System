@@ -62,9 +62,6 @@ class UDPSocket
                     perror("recvfrom failed");
                     return -1;
                 }
-                std::cout << "Received " << n << " bytes from "
-                          << inet_ntoa(client_addr.sin_addr) << ":"
-                          << ntohs(client_addr.sin_port) << std::endl;
                 return n;
             }
             return -1;  // running was set to false (shutdown)

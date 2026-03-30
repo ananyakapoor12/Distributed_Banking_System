@@ -87,7 +87,7 @@ public:
     // Returns true if account_num exists, holder_name matches, and password matches.
     bool auth(BankAccount acc, int account_num, const std::string &name, const std::string &password) const;
 
-    Result<bool> close_account(int account_num, const std::string &name, const std::string &password);
+    Result<BankAccountBalance> close_account(int account_num, const std::string &name, const std::string &password);
 
     Result<BankAccountBalance> deposit(int account_num, const std::string &name, const std::string &password, int currency, float amt);
     
