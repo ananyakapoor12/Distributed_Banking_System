@@ -2,7 +2,7 @@
 
 A comprehensive Java client implementation for the Distributed Banking System project (CE4013/CZ4013/SC4051). This client communicates with the C++ server using UDP sockets and implements both **at-least-once** and **at-most-once** invocation semantics.
 
-## 🎯 Features
+## Features
 
 ### Core Banking Operations
 1. **Open Account** - Create new bank account with initial balance
@@ -16,14 +16,14 @@ A comprehensive Java client implementation for the Distributed Banking System pr
 7. **Check Balance** - Query account balance (**idempotent**)
 
 ### Advanced Features
-- ✅ Full marshalling/unmarshalling implementation (no Java serialization)
-- ✅ Both invocation semantics (at-least-once & at-most-once)
-- ✅ Timeout and retry logic with configurable attempts
-- ✅ Request deduplication and response caching
-- ✅ Simulated packet loss for testing
-- ✅ Interactive console UI
-- ✅ Automated test suite
-- ✅ Comprehensive error handling
+- Full marshalling/unmarshalling implementation (no Java serialization)
+- Both invocation semantics (at-least-once & at-most-once)
+- Timeout and retry logic with configurable attempts
+- Request deduplication and response caching
+- Simulated packet loss for testing
+- Interactive console UI
+- Automated test suite
+- Comprehensive error handling
 
 ## 📁 Project Structure
 
@@ -49,7 +49,7 @@ client_implementation/
 └── README.md                            # This file
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Java Development Kit (JDK) 8 or higher
@@ -96,7 +96,7 @@ java -cp build client.Main localhost 2222 at-most-once
 - `server_port`: Port number (default: 2222)
 - `semantics`: `at-least-once` or `at-most-once` (default: at-least-once)
 
-## 🎮 Using the Client
+## Using the Client
 
 The client provides an interactive menu with the following options:
 
@@ -133,7 +133,7 @@ The client provides an interactive menu with the following options:
    - Enter sender and receiver account details
    - Confirm transfer
 
-## 🧪 Testing Invocation Semantics
+## Testing Invocation Semantics
 
 ### Interactive Testing
 Use option 8 to enable packet loss simulation:
@@ -166,16 +166,16 @@ The test suite includes:
 ### Expected Results
 
 **At-Most-Once Semantics:**
-- ✅ Non-idempotent operations execute exactly once
-- ✅ Duplicate requests return cached response
-- ✅ Safe for transfers and deposits even with packet loss
+- Non-idempotent operations execute exactly once
+- Duplicate requests return cached response
+- Safe for transfers and deposits even with packet loss
 
 **At-Least-Once Semantics:**
-- ⚠️ Non-idempotent operations may execute multiple times
-- ⚠️ Can lead to duplicate deposits/transfers
-- ✅ Idempotent operations (CHECK_BALANCE) work fine
+- Non-idempotent operations may execute multiple times
+- Can lead to duplicate deposits/transfers
+- Idempotent operations (CHECK_BALANCE) work fine
 
-## 🔧 Implementation Details
+## Implementation Details
 
 ### Marshalling/Unmarshalling
 All data is manually marshalled to byte arrays using network byte order (big-endian):
@@ -221,7 +221,7 @@ All data is manually marshalled to byte arrays using network byte order (big-end
 - No deduplication or caching
 - Simpler but unsafe for non-idempotent operations
 
-## 📊 Monitoring Feature
+## Monitoring Feature
 
 The monitoring feature demonstrates server-to-client callbacks:
 
@@ -239,7 +239,7 @@ The monitoring feature demonstrates server-to-client callbacks:
 - Terminal 2: Run regular client making transactions
 - Terminal 1: Observe real-time updates
 
-## 🌐 Multi-Language Implementation
+## Multi-Language Implementation
 
 This Java client interoperates with the C++ server through:
 - Platform-independent UDP sockets
@@ -253,28 +253,15 @@ This Java client interoperates with the C++ server through:
 - String encoding must match (UTF-8)
 - Struct padding differences handled by explicit marshalling
 
-## 📝 Currency Support
 
-The system supports 9 currencies:
-- SGD (Singapore Dollar)
-- USD (US Dollar)
-- INR (Indian Rupee)
-- AUD (Australian Dollar)
-- CNY (Chinese Yuan)
-- EUR (Euro)
-- CAD (Canadian Dollar)
-- GBP (British Pound)
-- CHF (Swiss Franc)
-
-## ⚠️ Important Notes
+## Important Notes
 
 1. **Password Length**: Maximum 8 bytes (enforced by protocol)
-2. **Port Number**: Use 2222 on lab computers (firewall restrictions)
-3. **Concurrent Clients**: Server handles one request at a time (per specification)
-4. **Network**: Ensure UDP traffic is allowed through firewall
-5. **Testing**: Use packet loss simulation to test fault tolerance
+2. **Concurrent Clients**: Server handles one request at a time (per specification)
+3. **Network**: Ensure UDP traffic is allowed through firewall
+4. **Testing**: Use packet loss simulation to test fault tolerance
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 **"Connection refused" or timeout:**
 - Check server is running: `netstat -an | grep 2222`
@@ -287,38 +274,13 @@ The system supports 9 currencies:
 - Verify all source files are present
 
 **Unexpected behavior with packet loss:**
-- This is intentional for testing!
+- This is intentional for testing.
 - Disable simulation (option 8, rate 0.0)
 - Observe retry messages in console
 
-## 📚 Assignment Requirements Checklist
+## License
 
-- ✅ UDP socket programming (no RMI/RPC/CORBA)
-- ✅ Manual marshalling/unmarshalling (no Java serialization)
-- ✅ Request/reply message format design
-- ✅ At-least-once invocation semantics
-- ✅ At-most-once invocation semantics
-- ✅ Timeout and retry logic
-- ✅ Duplicate request filtering
-- ✅ All 5 required services + 2 extra services
-- ✅ Idempotent vs non-idempotent operations
-- ✅ Callback mechanism for monitoring
-- ✅ Client-server on different computers support
-- ✅ Simulated packet loss for testing
-- ✅ Multi-language implementation (Java client + C++ server)
-- ✅ Comprehensive error handling
-- ✅ Well-commented source code
-
-## 👥 Team Information
-
-Update this section with your team details:
-- Team Member 1: [Name] - [% contribution]
-- Team Member 2: [Name] - [% contribution]
-- Team Member 3: [Name] - [% contribution]
-
-## 📄 License
-
-This project is for educational purposes as part of CE4013/CZ4013/SC4051 Distributed Systems course at NTU.
+This project is for educational purposes as part of SC4051 Distributed Systems course at NTU.
 
 ---
 **NTU College of Computing and Data Science**
