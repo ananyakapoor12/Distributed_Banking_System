@@ -37,7 +37,7 @@ int main(int argc, char* argv[])
 
     UDPSocket sock(port);
 
-    // maintain cache for past requests (at-most-once): ip -> (request_id -> reply bytes)
+    // maintain cache for past requests (at-most-once): ip:port -> (request_id -> reply bytes)
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>> prevRequestData;
 
     // monitoring clients: ip -> {sockaddr_in, expiry time}
@@ -50,7 +50,7 @@ int main(int argc, char* argv[])
 
     auto notify_monitors = [&](Opcode trigger, int account_num,
                                const std::string &holder_name,
-                               float balance, int currency,
+                               float balance, Currency currency,
                                const std::string &description)
     {
         auto now = std::chrono::steady_clock::now();
@@ -92,6 +92,7 @@ int main(int argc, char* argv[])
         ssize_t req_buf_len = sock.receive(buf, sizeof(buf), client_addr);
         char ipStr[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &(client_addr.sin_addr), ipStr, INET_ADDRSTRLEN);
+        std::string ipPortStr = std::string(ipStr) + ":" + std::to_string(ntohs(client_addr.sin_port));
 
         if (req_buf_len < 0)
         {
@@ -113,13 +114,13 @@ int main(int argc, char* argv[])
         std::string req_id_key(reinterpret_cast<const char*>(request_id), REQUEST_ID_LEN);
 
         if (amo) {
-            auto ip_it = prevRequestData.find(std::string(ipStr));
+            auto ip_it = prevRequestData.find(ipPortStr);
             if (ip_it != prevRequestData.end()) {
                 auto cached = ip_it->second.find(req_id_key);
                 if (cached != ip_it->second.end()) {
                     const std::string& cached_reply = cached->second;
                     sock.send_to(reinterpret_cast<const uint8_t*>(cached_reply.data()), cached_reply.size(), client_addr);
-                    DBG("[AMO CACHE HIT] ip=" << ipStr << " request_id resent");
+                    DBG("[AMO CACHE HIT] ip:port=" << ipPortStr << " request_id resent");
                     continue;  // skip re-execution
                 }
             }
@@ -149,11 +150,6 @@ int main(int argc, char* argv[])
                         write_uint(reply, res_offset, (uint32_t)res.value);
                         notify_monitors(Opcode::OPEN_ACCOUNT, res.value, args.name, args.balance, args.currency, "New account opened.");
                     }
-                    else if (res.code == ErrorCode::INVALID_CURRENCY)
-                    {
-                        write_byte(reply, res_offset, (uint8_t)Status::INVALID_CURRENCY);
-                        write_string(reply, res_offset, "Invalid Currency chosen");
-                    }
                     else if (res.code == ErrorCode::INVALID_AMOUNT)
                     {
                         write_byte(reply, res_offset, (uint8_t)Status::INVALID_AMOUNT);
@@ -167,8 +163,8 @@ int main(int argc, char* argv[])
                 sock.send_to(reply, res_offset, client_addr);
 
                 if (amo) {
-                    prevRequestData[std::string(ipStr)][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
-                    DBG("[AMO CACHED] ip=" << ipStr);
+                    prevRequestData[ipPortStr][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
+                    DBG("[AMO CACHED] ip:port=" << ipPortStr);
                 }
 
                 break;
@@ -210,8 +206,8 @@ int main(int argc, char* argv[])
                 sock.send_to(reply, res_offset, client_addr);
 
                 if (amo) {
-                    prevRequestData[std::string(ipStr)][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
-                    DBG("[AMO CACHED] ip=" << ipStr);
+                    prevRequestData[ipPortStr][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
+                    DBG("[AMO CACHED] ip:port=" << ipPortStr);
                 }
 
                 break;
@@ -267,8 +263,8 @@ int main(int argc, char* argv[])
                 sock.send_to(reply, res_offset, client_addr);
                 
                 if (amo) {
-                    prevRequestData[std::string(ipStr)][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
-                    DBG("[AMO CACHED] ip=" << ipStr);
+                    prevRequestData[ipPortStr][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
+                    DBG("[AMO CACHED] ip:port=" << ipPortStr);
                 }
                 
                 break;
@@ -329,8 +325,8 @@ int main(int argc, char* argv[])
                 sock.send_to(reply, res_offset, client_addr);
                 
                 if (amo) {
-                    prevRequestData[std::string(ipStr)][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
-                    DBG("[AMO CACHED] ip=" << ipStr);
+                    prevRequestData[ipPortStr][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
+                    DBG("[AMO CACHED] ip:port=" << ipPortStr);
                 }
                 
                 break;
@@ -374,7 +370,7 @@ int main(int argc, char* argv[])
                 }
                 sock.send_to(reply, res_offset, client_addr);
                 
-                prevRequestData[std::string(ipStr)][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
+                prevRequestData[ipPortStr][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
                 
                 break;
             }
@@ -448,8 +444,8 @@ int main(int argc, char* argv[])
                 sock.send_to(reply, res_offset, client_addr);
                 
                 if (amo) {
-                    prevRequestData[std::string(ipStr)][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
-                    DBG("[AMO CACHED] ip=" << ipStr);
+                    prevRequestData[ipPortStr][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
+                    DBG("[AMO CACHED] ip:port=" << ipPortStr);
                 }
                 
                 break;
@@ -494,8 +490,8 @@ int main(int argc, char* argv[])
                 }
                 sock.send_to(reply, res_offset, client_addr);
                 if (amo) {
-                    prevRequestData[std::string(ipStr)][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
-                    DBG("[AMO CACHED] ip=" << ipStr);
+                    prevRequestData[ipPortStr][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
+                    DBG("[AMO CACHED] ip:port=" << ipPortStr);
                 }
                 break;
             }

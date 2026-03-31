@@ -21,12 +21,51 @@ enum class MessageType : uint8_t {
     CALLBACK = 2   // server → monitoring client
 };
 
-// ─── Invocation semantics ─────────────────────────────────────────────────────
+// ─── Currency codes (1 byte) ──────────────────────────────────────────────────
 
-enum class Semantics {
-    AT_LEAST_ONCE,  // retransmit on timeout; server re-executes every duplicate
-    AT_MOST_ONCE    // server caches replies; duplicates get the cached response
+enum class Currency : uint8_t {
+    SGD = 0,
+    USD = 1,
+    INR = 2,
+    AUD = 3,
+    CNY = 4,
+    EUR = 5,
+    CAD = 6,
+    GBP = 7,
+    CHF = 8
 };
+
+inline std::string toString(Currency c)
+{
+    switch (c)
+    {
+    case Currency::SGD:
+        return "SGD";
+    case Currency::USD:
+        return "USD";
+    case Currency::INR:
+        return "INR";
+    case Currency::AUD:
+        return "AUD";
+    case Currency::CNY:
+        return "CNY";
+    case Currency::EUR:
+        return "EUR";
+    case Currency::CAD:
+        return "CAD";
+    case Currency::GBP:
+        return "GBP";
+    case Currency::CHF:
+        return "CHF";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+inline std::ostream &operator<<(std::ostream &os, Currency c)
+{
+    return os << toString(c);
+}
 
 // ─── Opcodes (1 byte) ─────────────────────────────────────────────────────────
 // Sent in every REQUEST to identify which service to invoke.
@@ -98,38 +137,39 @@ enum class Status : uint8_t {
 //  Per-opcode argument layout (all multi-byte fields in network byte order):
 //
 //  OPEN_ACCOUNT
-//    name        : 2-byte length  + N bytes
 //    password    : PASSWORD_LEN bytes (fixed, no length prefix)
 //    currency    : 1 B
 //    balance     : 4 B  (float via htonl trick)
+//    name        : 2-byte length  + N bytes
 //
 //  CLOSE_ACCOUNT
 //    account_num : 4 B
-//    name        : 2-byte length  + N bytes
 //    password    : PASSWORD_LEN bytes
+//    name        : 2-byte length  + N bytes
 //
 //  DEPOSIT / WITHDRAW
 //    account_num : 4 B
-//    name        : 2-byte length  + N bytes
 //    password    : PASSWORD_LEN bytes
 //    currency    : 1 B
 //    amount      : 4 B  (float)
+//    name        : 2-byte length  + N bytes
 //
 //  MONITOR
 //    duration    : 4 B  (seconds, uint32)
 //
 //  TRANSFER
 //    sender_account_num   : 4 B
-//    sender_name          : 2-byte length + N bytes
 //    sender_password      : PASSWORD_LEN bytes
 //    receiver_account_num : 4 B
-//    currency             : 1 B
 //    amount               : 4 B  (float)
+//    currency             : 1 B
+//    sender_name          : 2-byte length + N bytes
+//    receiver_name        : 2-byte length + N bytes
 //
 //  CHECK_BALANCE
 //    account_num : 4 B
-//    name        : 2-byte length + N bytes
 //    password    : PASSWORD_LEN bytes
+//    name        : 2-byte length + N bytes
 
 // ─── Response wire layout ─────────────────────────────────────────────────────
 //
