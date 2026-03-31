@@ -137,38 +137,39 @@ enum class Status : uint8_t {
 //  Per-opcode argument layout (all multi-byte fields in network byte order):
 //
 //  OPEN_ACCOUNT
-//    name        : 2-byte length  + N bytes
 //    password    : PASSWORD_LEN bytes (fixed, no length prefix)
 //    currency    : 1 B
 //    balance     : 4 B  (float via htonl trick)
+//    name        : 2-byte length  + N bytes
 //
 //  CLOSE_ACCOUNT
 //    account_num : 4 B
-//    name        : 2-byte length  + N bytes
 //    password    : PASSWORD_LEN bytes
+//    name        : 2-byte length  + N bytes
 //
 //  DEPOSIT / WITHDRAW
 //    account_num : 4 B
-//    name        : 2-byte length  + N bytes
 //    password    : PASSWORD_LEN bytes
 //    currency    : 1 B
 //    amount      : 4 B  (float)
+//    name        : 2-byte length  + N bytes
 //
 //  MONITOR
 //    duration    : 4 B  (seconds, uint32)
 //
 //  TRANSFER
 //    sender_account_num   : 4 B
-//    sender_name          : 2-byte length + N bytes
 //    sender_password      : PASSWORD_LEN bytes
 //    receiver_account_num : 4 B
-//    currency             : 1 B
 //    amount               : 4 B  (float)
+//    currency             : 1 B
+//    sender_name          : 2-byte length + N bytes
+//    receiver_name        : 2-byte length + N bytes
 //
 //  CHECK_BALANCE
 //    account_num : 4 B
-//    name        : 2-byte length + N bytes
 //    password    : PASSWORD_LEN bytes
+//    name        : 2-byte length + N bytes
 
 // ─── Response wire layout ─────────────────────────────────────────────────────
 //
