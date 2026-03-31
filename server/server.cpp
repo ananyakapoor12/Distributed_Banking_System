@@ -350,7 +350,7 @@ int main(int argc, char* argv[])
                         write_byte(reply, res_offset, (uint8_t)Status::MONITOR_INTERVAL_INVALID);
                         write_string(reply, res_offset, "Monitor interval cannot be less than or equal to zero.");
                     } else {
-                        monitorClients[std::string(ipStr)] = {
+                        monitorClients[ipPortStr] = {
                             client_addr,
                             std::chrono::steady_clock::now() + std::chrono::seconds(args.duration)
                         };
@@ -372,7 +372,7 @@ int main(int argc, char* argv[])
                 }
                 sock.send_to(reply, res_offset, client_addr);
                 
-                prevRequestData[ipPortStr][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
+                // prevRequestData[ipPortStr][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
                 
                 break;
             }
