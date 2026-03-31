@@ -13,7 +13,7 @@ struct RequestHeader {
 struct OpenAccountArgs {
     std::string name;
     std::string password;
-    uint8_t currency;
+    Currency currency;
     float balance;
 };
 
@@ -27,7 +27,7 @@ struct DepositArgs {
     uint32_t account_num;
     std::string name;
     std::string password;
-    uint8_t currency;
+    Currency currency;
     float amount;
 };
 
@@ -35,7 +35,7 @@ struct WithdrawArgs {
     uint32_t account_num;
     std::string name;
     std::string password;
-    uint8_t currency;
+    Currency currency;
     float amount;
 };
 
@@ -49,7 +49,7 @@ struct TransferArgs {
     std::string receiver_name;
     std::string sender_password;
     uint32_t receiver_account_num;
-    uint8_t currency;
+    Currency currency;
     float amount;
 };
 
