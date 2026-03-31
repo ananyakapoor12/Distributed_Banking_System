@@ -31,7 +31,9 @@ int main(int argc, char* argv[])
     }
     std::cout << "Invocation semantics: " << (amo ? "at-most-once" : "at-least-once") << std::endl;
 
-    AccountStore bank;
+    const char *db_env = std::getenv("DB_PATH");
+    std::string db_path = db_env ? db_env : "banking.db";
+    AccountStore bank(db_path);
 
     DBG("Starting server on port " << port);
 
