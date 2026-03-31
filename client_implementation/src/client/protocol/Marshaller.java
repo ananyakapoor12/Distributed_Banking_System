@@ -16,7 +16,7 @@ public class Marshaller {
      * Marshal an integer (4 bytes, network byte order)
      */
     public static void marshalInt(ByteBuffer buffer, int value) {
-        buffer.putInt(value);
+        buffer.putInt(value);  // ByteBuffer defaults to big-endian
     }
     
     /**
@@ -28,17 +28,17 @@ public class Marshaller {
     
     /**
      * Marshal a float (4 bytes, network byte order)
-     * CRITICAL: C++ server uses htonl/ntohl on float bits, so we must convert via int
+     * C++ server uses htonl/ntohl on float bits, so convert via int
      */
     public static void marshalFloat(ByteBuffer buffer, float value) {
-        // Convert float to int bits, then write as network-order integer
+        // Convert float to int bits, then write as network-order int
         int bits = Float.floatToRawIntBits(value);
-        buffer.putInt(bits);  // This writes in big-endian (network order)
+        buffer.putInt(bits);  // big-endian order
     }
     
     /**
      * Unmarshal a float (4 bytes, network byte order)
-     * CRITICAL: C++ server uses htonl/ntohl on float bits, so we must convert via int
+     * C++ server uses htonl/ntohl on float bits, so convert via int
      */
     public static float unmarshalFloat(ByteBuffer buffer) {
         // Read as network-order integer, then convert to float bits
@@ -110,7 +110,7 @@ public class Marshaller {
     }
     
     /**
-     * Generate a 16-byte UUID for request identification
+     * Generate a 16-byte UUID for request identification - size prefixed in Protocol.REQUEST_ID_LEN
      */
     public static byte[] generateRequestId() {
         UUID uuid = UUID.randomUUID();

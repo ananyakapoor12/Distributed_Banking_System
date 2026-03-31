@@ -36,13 +36,13 @@ public class Protocol {
         }
     }
     
-    // ─── Invocation semantics ─────────────────────────────────────────────────────
+    // ─── Invocation semantics
     public enum Semantics {
         AT_LEAST_ONCE,      // retransmit on timeout; server re-executes every duplicate
         AT_MOST_ONCE        // server caches replies; duplicates get cached response
     }
     
-    // ─── Opcodes ──────────────────────────────────────────────────────────────────
+    // ─── Opcodes 
     public enum Opcode {
         OPEN_ACCOUNT((byte) 1),
         CLOSE_ACCOUNT((byte) 2),
@@ -70,7 +70,7 @@ public class Protocol {
         }
     }
     
-    // ─── Status codes ─────────────────────────────────────────────────────────────
+    // ─── Status codes
     public enum Status {
         // General / Protocol-Level
         SUCCESS((byte) 0),
@@ -122,7 +122,7 @@ public class Protocol {
         }
     }
     
-    // ─── Currency enumeration ─────────────────────────────────────────────────────
+    // ─── Currency enumeration
     public enum Currency {
         SGD((byte) 0),
         USD((byte) 1),

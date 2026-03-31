@@ -188,8 +188,8 @@ public class BankingClient {
         MessageParser.Response response = udpClient.sendRequest(requestData, requestId);
         
         if (response.status.isSuccess()) {
-            System.out.println("✓ Monitoring registered. Waiting for callbacks...");
-            System.out.println("  (You will be blocked from making new requests during this time)");
+            System.out.println(" Monitoring registered. Waiting for callbacks...");
+            System.out.println(" (You will be blocked from making new requests during this time)");
             
             // Calculate end time
             long endTime = System.currentTimeMillis() + (durationSeconds * 1000L);
@@ -203,7 +203,7 @@ public class BankingClient {
                     // Receive callback with remaining time as timeout
                     MessageParser.Callback callback = udpClient.receiveCallback(remainingTime);
                     
-                    System.out.println("\n>>> CALLBACK RECEIVED <<<");
+                    System.out.println("\nCALLBACK RECEIVED!");
                     System.out.println(callback);
                     
                     // Notify handler
@@ -233,7 +233,11 @@ public class BankingClient {
     public void setPacketLossRate(double rate) {
         udpClient.setPacketLossRate(rate);
     }
-    
+
+    public void setResponseLossRate(double rate) {
+        udpClient.setResponseLossRate(rate);
+    }
+
     /**
      * Get UDP client for advanced operations
      */

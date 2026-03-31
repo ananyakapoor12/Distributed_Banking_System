@@ -29,7 +29,8 @@ public class UDPClient {
     private final Map<String, MessageParser.Response> responseCache;
     
     // Simulated packet loss (for testing)
-    private double packetLossRate = 0.0;  // 0.0 = no loss, 0.3 = 30% loss
+    private double packetLossRate = 0.0;       // applied to both request and response
+    private double responseLossRate = 0.0;     // applied only to responses (simulates reply loss)
     
     public UDPClient(String serverHost, int serverPort, Protocol.Semantics semantics) 
             throws SocketException, UnknownHostException {
@@ -66,50 +67,52 @@ public class UDPClient {
             attempt++;
             
             try {
+                System.out.println("\n  ┌─ Attempt " + attempt + "/" + MAX_RETRIES + " ──────────────────────────────");
                 // Simulate packet loss for testing (request loss)
                 if (!shouldDropPacket()) {
-                    System.out.println("  [SEND] Attempt " + attempt + "/" + MAX_RETRIES + 
-                                     " - Request ID: " + requestIdStr);
+                    System.out.println("  │ REQUEST  sent    [ID: " + requestIdStr.substring(0, 8) + "...]");
                     DatagramPacket sendPacket = new DatagramPacket(
                             requestData, requestData.length, serverAddress, serverPort);
                     socket.send(sendPacket);
                 } else {
-                    System.out.println("  [SIMULATED LOSS] Request packet dropped (attempt " + attempt + ")");
+                    System.out.println("  │ REQUEST  DROPPED (never reached server)");
                 }
-                
+
                 // Wait for response
                 byte[] receiveBuffer = new byte[Protocol.MAX_BUF_SIZE];
                 DatagramPacket receivePacket = new DatagramPacket(receiveBuffer, receiveBuffer.length);
-                
+
                 socket.receive(receivePacket);
-                
+
                 // Simulate packet loss for testing (response loss)
-                if (shouldDropPacket()) {
-                    System.out.println("  [SIMULATED LOSS] Response packet dropped");
+                if (shouldDropPacket() || Math.random() < responseLossRate) {
+                    System.out.println("  │RESPONSE DROPPED (server executed, reply lost)");
+                    System.out.println("  └────────────────────────────────────────────────────");
                     throw new SocketTimeoutException("Simulated response loss");
                 }
-                
+
                 // Parse response
                 response = MessageParser.parseResponse(receivePacket.getData(), receivePacket.getLength());
-                System.out.println("  [RECV] Response received - Status: " + response.status);
-                
+                System.out.println("  │RESPONSE RECEIVED  [Status: " + response.status + "]");
+                System.out.println("  └────────────────────────────────────────────────────");
+
                 // Cache response for at-most-once semantics
                 if (semantics == Protocol.Semantics.AT_MOST_ONCE) {
                     responseCache.put(requestIdStr, response);
                 }
-                
+
                 return response;
-                
+
             } catch (SocketTimeoutException e) {
-                System.out.println("  [TIMEOUT] No response received (attempt " + attempt + ")");
-                
+                System.out.println("  │RESPONSE TIMEOUT  (no reply within " + TIMEOUT_MS/1000 + "s)");
+                System.out.println("  └────────────────────────────────────────────────────");
+
                 if (attempt >= MAX_RETRIES) {
+                    System.out.println("  All " + MAX_RETRIES + " attempts failed.");
                     throw new IOException("Request failed after " + MAX_RETRIES + " attempts: timeout");
                 }
-                
-                // For at-most-once, we retry with the SAME request ID
-                // For at-least-once, we could generate a new ID, but spec says requests are well-separated
-                System.out.println("  [RETRY] Retrying with same request ID...");
+
+                System.out.println(" Retrying with same request ID (server may have already executed)...");
             }
         }
         
@@ -151,16 +154,28 @@ public class UDPClient {
         this.packetLossRate = rate;
         System.out.println("Packet loss simulation set to: " + (rate * 100) + "%");
     }
+
+    /**
+     * Simulate reply-only loss — request always reaches server, only response is dropped.
+     * triggers ALO double-execution for non-idempotent operations.
+     */
+    public void setResponseLossRate(double rate) {
+        if (rate < 0.0 || rate > 1.0) {
+            throw new IllegalArgumentException("Response loss rate must be between 0.0 and 1.0");
+        }
+        this.responseLossRate = rate;
+        System.out.println("Response-only loss simulation set to: " + (rate * 100) + "%");
+    }
     
     /**
-     * Determine if a packet should be dropped (for testing)
+     * Determine if a packet should be dropped (ONLY for testing )
      */
     private boolean shouldDropPacket() {
         return Math.random() < packetLossRate;
     }
     
     /**
-     * Get local port (useful for debugging)
+     * Get local port number
      */
     public int getLocalPort() {
         return socket.getLocalPort();
@@ -177,7 +192,7 @@ public class UDPClient {
     }
     
     /**
-     * Get response cache size (for debugging)
+     * Get response cache size 
      */
     public int getCacheSize() {
         return responseCache.size();

@@ -7,7 +7,6 @@ import java.nio.ByteBuffer;
  * Field order must match exactly what handlers.cpp reads.
  *
  * IMPORTANT: Password is FIXED 8 bytes (no length prefix).
- * Server uses read_fixed_string(buf, offset, buf_len, 8) to read it.
  */
 public class MessageBuilder {
 

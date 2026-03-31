@@ -136,7 +136,6 @@ public class MessageParser {
         callback.balance = Marshaller.unmarshalFloat(buffer);
         callback.currency = Protocol.Currency.fromByte(buffer.get());
         callback.eventDescription = Marshaller.unmarshalString(buffer);
-        
         return callback;
     }
     
