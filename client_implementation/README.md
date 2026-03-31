@@ -25,7 +25,7 @@ A comprehensive Java client implementation for the Distributed Banking System pr
 - Automated test suite
 - Comprehensive error handling
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 client_implementation/
