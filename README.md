@@ -56,24 +56,42 @@ Both components must be started with the same semantics flag.
 - Non-idempotent operations may execute multiple times on retries
 - Idempotent operations (CHECK_BALANCE) are safe regardless
 
-## Wire Protocol
+## Wire Format
 
-All multi-byte fields use network byte order (big-endian). Strings use a 2-byte length prefix followed by UTF-8 bytes. Passwords are fixed 8 bytes, zero-padded.
+**Request packet:**
 
-**Request:**
-```
-[msg_type:1][request_id:16][opcode:1][arguments:varies]
-```
+| Offset | Field       | Size  |
+|--------|-------------|-------|
+| 0      | msg_type    | 1 B   |
+| 1–16   | request_id  | 16 B  |
+| 17     | opcode      | 1 B   |
+| 18+    | arguments   | varies |
 
-**Response:**
-```
-[msg_type:1][request_id:16][opcode:1][status:1][body:varies]
-```
+**Response packet:**
 
-**Callback (server → monitoring client):**
-```
-[msg_type:1][trigger_opcode:1][account_num:4][name:var][balance:4][currency:1][description:var]
-```
+| Offset | Field       | Size  |
+|--------|-------------|-------|
+| 0      | msg_type    | 1 B   |
+| 1–16   | request_id  | 16 B  |
+| 17     | opcode      | 1 B   |
+| 18     | status      | 1 B   |
+| 19+    | body        | varies |
+
+**Callback packet (server → monitoring client):**
+
+| Offset | Field             | Size   |
+|--------|-------------------|--------|
+| 0      | msg_type (= 2)    | 1 B    |
+| 1      | trigger_opcode    | 1 B    |
+| 2      | account_num       | 4 B    |
+| 6      | holder_name       | 2+N B  |
+| …      | balance           | 4 B    |
+| …      | currency          | 1 B    |
+| …      | event_description | 2+N B  |
+
+### Supported Currencies
+
+`SGD` (0), `USD` (1), `INR` (2), `AUD` (3), `CNY` (4), `EUR` (5), `CAD` (6), `GBP` (7), `CHF` (8)
 
 ## Monitoring
 
