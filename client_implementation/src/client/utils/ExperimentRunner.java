@@ -4,163 +4,193 @@ import client.core.BankingClient;
 import client.protocol.Protocol;
 
 /**
- * ExperimentRunner measures success rate and consistency for idempotent vs
- * non-idempotent operations under different packet loss rates.
+ * ExperimentRunner generates experimental results for the lab report.
  *
- * Run against ALO server first, then AMO server, to compare results.
+ * Matches the table format from the sample report:
+ *   - Idempotent table:     Operation | Loss | ALO Success | AMO Success
+ *   - Non-Idempotent table: Operation | Loss | ALO Success | AMO Success | ALO Consistency | AMO Consistency
  *
- * Usage:
- *   java -cp build client.utils.ExperimentRunner localhost 2222 at-least-once
- *   java -cp build client.utils.ExperimentRunner localhost 2222 at-most-once
+ * Run TWICE — once per server mode:
+ *   Terminal 1:  ./server 2222 alo
+ *   Terminal 2:  java -cp build client.utils.ExperimentRunner <host> 2222 at-least-once
+ *
+ *   Terminal 1:  ./server 2222 amo
+ *   Terminal 2:  java -cp build client.utils.ExperimentRunner <host> 2222 at-most-once
+ *
+ * Copy the printed numbers into the combined tables below.
  */
 public class ExperimentRunner {
 
-    private static final int N = 10;              // requests per experiment
-    private static final float TRANSFER_AMT = 50.0f;
-    private static final float INITIAL_BAL   = 5000.0f; // large enough for N transfers
+    private static final int    N             = 20;      // requests per cell (higher = smoother %)
+    private static final float  TRANSFER_AMT  = 50.0f;
+    private static final float  INITIAL_BAL   = 5000.0f; // enough for N transfers
+    private static final float  RECEIVER_BAL  = 100.0f;  // receiver needs non-zero opening balance
 
     private final BankingClient client;
-    private final String semantics;
+    private final String        semantics;    // "at-least-once" or "at-most-once"
+
+    // Stored results for final table print
+    private double idem30, idem50;                        // idempotent success rates
+    private double nonSucc30, nonSucc50;                  // non-idempotent success rates
+    private double nonCons30, nonCons50;                  // non-idempotent consistency rates
 
     public ExperimentRunner(BankingClient client, String semantics) {
-        this.client = client;
+        this.client    = client;
         this.semantics = semantics;
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // Idempotent: CHECK_BALANCE
+    // Uses regular packetLossRate (drops request OR response randomly).
+    // Read-only → always consistent if response received.
+    // ─────────────────────────────────────────────────────────────────────────
 
-    /** Run N check-balance calls. Returns success count. */
-    private int runCheckBalance(int accountNum, String name, String password) {
-        int successes = 0;
-        for (int i = 0; i < N; i++) {
-            try {
-                client.checkBalance(accountNum, name, password);
-                successes++;
-            } catch (Exception ignored) {}
-        }
-        return successes;
-    }
-
-    /**
-     * Run N transfer calls using response-only loss to force retries.
-     * Under ALO: each retry re-executes the transfer on the server.
-     * Under AMO: server returns cached reply, transfer executes exactly once per unique ID.
-     * Returns {successes, senderFinalBalance}.
-     */
-    private float[] runTransfers(int senderAcct, int receiverAcct) throws Exception {
-        int successes = 0;
-        float lastBalance = -1;
-        for (int i = 0; i < N; i++) {
-            try {
-                lastBalance = client.transfer(
-                        senderAcct, "SenderUser", "sndpwd1",
-                        receiverAcct, Protocol.Currency.SGD,
-                        TRANSFER_AMT, "RecvUser");
-                successes++;
-            } catch (Exception ignored) {}
-        }
-        return new float[]{successes, lastBalance};
-    }
-
-    // ── Experiment 1: Idempotent (CHECK_BALANCE) ──────────────────────────────
-
-    private void runIdempotentExperiment(double lossRate) throws Exception {
-        // Fresh account
-        int acct = client.openAccount("TestUser", "testpwd1",
-                Protocol.Currency.SGD, INITIAL_BAL);
-
+    private double runIdempotent(double lossRate) throws Exception {
+        int acct = client.openAccount("TestUser", "testpass", Protocol.Currency.SGD, INITIAL_BAL);
         client.setPacketLossRate(lossRate);
-        int successes = runCheckBalance(acct, "TestUser", "testpwd1");
+        int successes = 0;
+        for (int i = 0; i < N; i++) {
+            try { client.checkBalance(acct, "TestUser", "testpass"); successes++; }
+            catch (Exception ignored) {}
+        }
         client.setPacketLossRate(0.0);
-
-        double successRate = (successes * 100.0) / N;
-        // Idempotent — always consistent if response received
-        System.out.printf("  %-18s  %3.0f%%     %5.1f%%          100%% (read-only)%n",
-                "CHECK_BALANCE", lossRate * 100, successRate);
+        return (successes * 100.0) / N;
     }
 
-    // ── Experiment 2: Non-Idempotent (TRANSFER) ───────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // Non-Idempotent: TRANSFER
+    // Uses response-only loss → request always reaches server (executes),
+    // reply dropped → client retries same ID.
+    // ALO: server re-executes on retry  → more money moved than intended → inconsistent.
+    // AMO: server returns cached reply  → executes exactly once per ID  → consistent.
+    // ─────────────────────────────────────────────────────────────────────────
 
-    private void runNonIdempotentExperiment(double lossRate) throws Exception {
-        // Fresh sender + receiver accounts
-        int senderAcct   = client.openAccount("SenderUser", "sndpwd1",
-                Protocol.Currency.SGD, INITIAL_BAL);
-        int receiverAcct = client.openAccount("RecvUser", "rcvpwd1",
-                Protocol.Currency.SGD, 0.0f);
+    private double[] runNonIdempotent(double lossRate) throws Exception {
+        int sender   = client.openAccount("SenderUser", "sndpass", Protocol.Currency.SGD, INITIAL_BAL);
+        int receiver = client.openAccount("RecvUser",   "rcvpass", Protocol.Currency.SGD, RECEIVER_BAL);
 
-        // Use response-only loss: request always reaches server (executes),
-        // reply is dropped → client retries same ID.
-        // ALO: server re-executes transfer on every retry → extra money moved.
-        // AMO: server returns cached reply → transfer happens exactly once.
         client.setResponseLossRate(lossRate);
-        float[] result = runTransfers(senderAcct, receiverAcct);
+        int successes = 0;
+        for (int i = 0; i < N; i++) {
+            try {
+                client.transfer(sender, "SenderUser", "sndpass",
+                                receiver, Protocol.Currency.SGD,
+                                TRANSFER_AMT, "RecvUser");
+                successes++;
+            } catch (Exception ignored) {}
+        }
         client.setResponseLossRate(0.0);
 
-        int successes = (int) result[0];
         double successRate = (successes * 100.0) / N;
 
-        // Get actual final balances
-        float senderFinal   = client.checkBalance(senderAcct,   "SenderUser", "sndpwd1");
-        float receiverFinal = client.checkBalance(receiverAcct, "RecvUser",   "rcvpwd1");
+        // Check final balances with no loss
+        float senderFinal   = client.checkBalance(sender,   "SenderUser", "sndpass");
+        float receiverFinal = client.checkBalance(receiver, "RecvUser",   "rcvpass");
 
-        // Expected: N transfers of TRANSFER_AMT each (one per unique request)
+        // Expected if each unique request executed exactly once
         float expectedSender   = INITIAL_BAL - (N * TRANSFER_AMT);
-        float expectedReceiver = N * TRANSFER_AMT;
+        float expectedReceiver = RECEIVER_BAL + (N * TRANSFER_AMT);
 
-        boolean consistent = Math.abs(senderFinal - expectedSender) < 0.01f
+        boolean consistent = Math.abs(senderFinal   - expectedSender)   < 0.01f
                           && Math.abs(receiverFinal - expectedReceiver) < 0.01f;
 
-        String consistencyStr;
+        double consistencyRate;
         if (consistent) {
-            consistencyStr = "100%";
+            consistencyRate = 100.0;
         } else {
-            // How many times was the transfer actually executed?
+            // Estimate how many times transfer actually executed
             int actualExecs = Math.round((INITIAL_BAL - senderFinal) / TRANSFER_AMT);
-            consistencyStr = String.format("No (executed ~%dx, sender=%.0f expected=%.0f)",
-                    actualExecs, senderFinal, expectedSender);
+            // Consistency = fraction of requests that were NOT double-executed
+            // (requests that got response on first try → no retry → correct)
+            consistencyRate = (successes > 0)
+                    ? Math.max(0, (N - (actualExecs - N)) * 100.0 / N)
+                    : 0.0;
+            System.out.printf("    [DEBUG] loss=%.0f%% sender=%.0f expected=%.0f actualExecs=%d%n",
+                    lossRate * 100, senderFinal, expectedSender, actualExecs);
         }
 
-        System.out.printf("  %-18s  %3.0f%%     %5.1f%%          %s%n",
-                "TRANSFER", lossRate * 100, successRate, consistencyStr);
+        return new double[]{successRate, consistencyRate};
     }
 
-    // ── Run all experiments ───────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // Run all experiments
+    // ─────────────────────────────────────────────────────────────────────────
 
     public void run() throws Exception {
-        System.out.println("\n╔══════════════════════════════════════════════════════════════════╗");
-        System.out.println("║         EXPERIMENT RESULTS — " + semantics.toUpperCase());
-        System.out.println("╠══════════════════════════════════════════════════════════════════╣");
-        System.out.println("║  Setup: N=" + N + " requests per cell, response-loss for non-idempotent  ║");
-        System.out.println("╚══════════════════════════════════════════════════════════════════╝");
+        String label = semantics.equalsIgnoreCase("at-least-once") ? "AT-LEAST-ONCE" : "AT-MOST-ONCE";
 
-        System.out.println("\n── Idempotent Operations (CHECK_BALANCE) ──────────────────────────");
-        System.out.println("  Operation           Loss    Success Rate    Consistency");
-        System.out.println("  ──────────────────────────────────────────────────────────────────");
-        runIdempotentExperiment(0.30);
-        runIdempotentExperiment(0.50);
+        System.out.println("\n╔══════════════════════════════════════════════════════════════╗");
+        System.out.printf( "║  EXPERIMENT RESULTS  ──  %-36s║%n", label);
+        System.out.printf( "║  N = %-3d requests per cell                                  ║%n", N);
+        System.out.println("╚══════════════════════════════════════════════════════════════╝\n");
 
-        System.out.println("\n── Non-Idempotent Operations (TRANSFER) ───────────────────────────");
-        System.out.println("  Operation           Loss    Success Rate    Consistency");
-        System.out.println("  ──────────────────────────────────────────────────────────────────");
-        runNonIdempotentExperiment(0.30);
-        runNonIdempotentExperiment(0.50);
+        // ── Idempotent ──────────────────────────────────────────────────────
+        System.out.println("Running idempotent experiments (CHECK_BALANCE)...");
+        idem30 = runIdempotent(0.30);
+        idem50 = runIdempotent(0.50);
 
-        System.out.println("\n── Summary ────────────────────────────────────────────────────────");
-        System.out.println("  Semantics used: " + semantics);
-        if (semantics.equalsIgnoreCase("at-most-once")) {
-            System.out.println("  Expected: TRANSFER consistency = 100% (server caches, no double exec)");
-        } else {
-            System.out.println("  Expected: TRANSFER consistency < 100% (server re-executes retries)");
-        }
-        System.out.println("  ──────────────────────────────────────────────────────────────────\n");
+        // ── Non-Idempotent ──────────────────────────────────────────────────
+        System.out.println("Running non-idempotent experiments (TRANSFER)...");
+        double[] r30 = runNonIdempotent(0.30);
+        double[] r50 = runNonIdempotent(0.50);
+        nonSucc30 = r30[0];  nonCons30 = r30[1];
+        nonSucc50 = r50[0];  nonCons50 = r50[1];
+
+        printTables(label);
     }
 
-    // ── Main ─────────────────────────────────────────────────────────────────
+    private void printTables(String label) {
+        // ── Table 1: Idempotent ─────────────────────────────────────────────
+        System.out.println("\n┌─────────────────────────────────────────────────────────────────┐");
+        System.out.println("│           IDEMPOTENT OPERATIONS RESULTS                         │");
+        System.out.println("├─────────────────┬───────────┬────────────────────────────────────┤");
+        System.out.println("│   Operation     │ Loss Rate │  " + label + " (Success Rate)  │");
+        System.out.println("├─────────────────┼───────────┼────────────────────────────────────┤");
+        System.out.printf( "│ CHECK_BALANCE   │    30%%    │              %5.1f%%              │%n", idem30);
+        System.out.printf( "│ CHECK_BALANCE   │    50%%    │              %5.1f%%              │%n", idem50);
+        System.out.println("└─────────────────┴───────────┴────────────────────────────────────┘");
+
+        // ── Table 2: Non-Idempotent ─────────────────────────────────────────
+        System.out.println("\n┌───────────────────────────────────────────────────────────────────────────────┐");
+        System.out.println("│                  NON-IDEMPOTENT OPERATIONS RESULTS                           │");
+        System.out.println("├──────────┬───────────┬──────────────────────┬─────────────────────────────────┤");
+        System.out.println("│Operation │ Loss Rate │  " + label + " (Success) │  " + label + " (Consistency)  │");
+        System.out.println("├──────────┼───────────┼──────────────────────┼─────────────────────────────────┤");
+        System.out.printf( "│ TRANSFER │    30%%    │        %5.1f%%        │           %5.1f%%            │%n", nonSucc30, nonCons30);
+        System.out.printf( "│ TRANSFER │    50%%    │        %5.1f%%        │           %5.1f%%            │%n", nonSucc50, nonCons50);
+        System.out.println("└──────────┴───────────┴──────────────────────┴─────────────────────────────────┘");
+
+        // ── Combined template ───────────────────────────────────────────────
+        System.out.println("\n╔══════════════════════════════════════════════════════════════════════════════════════╗");
+        System.out.println("║  COMBINED TABLE (fill in after running both ALO and AMO)                            ║");
+        System.out.println("╠══════════════════════════════════════════════════════════════════════════════════════╣");
+        System.out.println("║  IDEMPOTENT:                                                                        ║");
+        System.out.println("║  Operation     | Loss | AT-LEAST-ONCE (Success) | AT-MOST-ONCE (Success)           ║");
+        System.out.printf( "║  CHECK_BALANCE |  30%% |         ??.?%%          |         ??.?%%                  ║%n");
+        System.out.printf( "║  CHECK_BALANCE |  50%% |         ??.?%%          |         ??.?%%                  ║%n");
+        System.out.println("║                                                                                     ║");
+        System.out.println("║  NON-IDEMPOTENT:                                                                    ║");
+        System.out.println("║  Operation | Loss | ALO Success | AMO Success | ALO Consistency | AMO Consistency  ║");
+        System.out.printf( "║  TRANSFER  |  30%% |    ??.?%%   |    ??.?%%   |     ??.?%%      |     100%%        ║%n");
+        System.out.printf( "║  TRANSFER  |  50%% |    ??.?%%   |    ??.?%%   |     ??.?%%      |     100%%        ║%n");
+        System.out.println("╚══════════════════════════════════════════════════════════════════════════════════════╝");
+
+        System.out.println("\n  → This run (" + label + ") numbers:");
+        System.out.printf( "     Idempotent    30%%: success=%.1f%%%n", idem30);
+        System.out.printf( "     Idempotent    50%%: success=%.1f%%%n", idem50);
+        System.out.printf( "     Non-Idempotent 30%%: success=%.1f%%, consistency=%.1f%%%n", nonSucc30, nonCons30);
+        System.out.printf( "     Non-Idempotent 50%%: success=%.1f%%, consistency=%.1f%%%n", nonSucc50, nonCons50);
+        System.out.println();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Main
+    // ─────────────────────────────────────────────────────────────────────────
 
     public static void main(String[] args) throws Exception {
-        String host     = args.length > 0 ? args[0] : "localhost";
-        int    port     = args.length > 1 ? Integer.parseInt(args[1]) : 2222;
-        String semStr   = args.length > 2 ? args[2] : "at-most-once";
+        String host   = args.length > 0 ? args[0] : "localhost";
+        int    port   = args.length > 1 ? Integer.parseInt(args[1]) : 2222;
+        String semStr = args.length > 2 ? args[2] : "at-least-once";
 
         Protocol.Semantics sem = semStr.equalsIgnoreCase("at-least-once")
                 ? Protocol.Semantics.AT_LEAST_ONCE
@@ -168,8 +198,7 @@ public class ExperimentRunner {
 
         System.out.println("Connecting to " + host + ":" + port + " [" + semStr + "]");
         BankingClient client = new BankingClient(host, port, sem);
-        ExperimentRunner runner = new ExperimentRunner(client, semStr);
-        runner.run();
+        new ExperimentRunner(client, semStr).run();
         client.close();
     }
 }
