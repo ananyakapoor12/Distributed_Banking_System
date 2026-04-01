@@ -16,40 +16,40 @@ JAR_NAME="BankingClient.jar"
 MAIN_CLASS="client.Main"
 
 # Clean previous build
-echo "🧹 Cleaning previous build..."
+echo "Cleaning previous build..."
 rm -rf "$BUILD_DIR" "$DIST_DIR"
 mkdir -p "$BUILD_DIR" "$DIST_DIR"
 
 # Compile Java files
-echo "🔨 Compiling Java sources..."
+echo "Compiling Java sources..."
 javac -d "$BUILD_DIR" -sourcepath "$SRC_DIR" "$SRC_DIR/client/Main.java"
 
 if [ $? -ne 0 ]; then
-    echo "❌ Compilation failed!"
+    echo "Compilation failed!"
     exit 1
 fi
 
-echo "✓ Compilation successful"
+echo "Compilation successful"
 
 # Create manifest
-echo "📝 Creating manifest..."
+echo "Creating manifest..."
 cat > "$BUILD_DIR/MANIFEST.MF" << EOF
 Manifest-Version: 1.0
 Main-Class: $MAIN_CLASS
 EOF
 
 # Create JAR
-echo "📦 Creating JAR file..."
+echo "Creating JAR file..."
 cd "$BUILD_DIR"
 jar cfm "../$DIST_DIR/$JAR_NAME" MANIFEST.MF $(find . -name "*.class")
 
 if [ $? -ne 0 ]; then
-    echo "❌ JAR creation failed!"
+    echo "JAR creation failed!"
     exit 1
 fi
 
 cd ..
-echo "✓ JAR created: $DIST_DIR/$JAR_NAME"
+echo "JAR created: $DIST_DIR/$JAR_NAME"
 
 echo ""
 echo "╔═══════════════════════════════════════════════════════════╗"
