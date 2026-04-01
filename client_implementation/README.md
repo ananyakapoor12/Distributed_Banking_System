@@ -82,13 +82,19 @@ java -jar dist/BankingClient.jar <server_host> <server_port> <semantics>
 # Connect to localhost with at-least-once semantics
 java -jar dist/BankingClient.jar localhost 2222 at-least-once
 
-# Connect to remote server with at-most-once semantics
-java -jar dist/BankingClient.jar 192.168.1.100 2222 at-most-once
+# Connect to remote server with at-least-once semantics
+java -jar dist/BankingClient.jar 192.168.1.100 2222 at-least-once
 ```
 
 **Using compiled classes:**
 ```bash
-java -cp build client.Main localhost 2222 at-most-once
+# Connect to localhost with at-least-once semantics
+java -cp build client.Main localhost 2222 at-least-once
+```
+
+```bash
+# Connect to remote server with at-most-once semantics
+java -cp build client.Main <server_host> <server_port> <semantics>
 ```
 
 ### Parameters
