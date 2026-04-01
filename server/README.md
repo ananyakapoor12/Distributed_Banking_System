@@ -71,33 +71,6 @@ Clients registered via `MONITOR` receive server-initiated `CALLBACK` packets whe
 - Non-idempotent operations may execute multiple times if the client retries.
 - Idempotent operations (CHECK_BALANCE) are safe under retries.
 
-## Testing
-
-### Automated Test Suite
-
-Run the Python test suite against a running server:
-```bash
-python3 test_all.py
-```
-
-The suite targets `127.0.0.1:8014` by default and covers:
-1. **OPEN_ACCOUNT** — create test accounts
-2. **DEPOSIT** — success, wrong password, account not found, invalid amount
-3. **WITHDRAW** — success, wrong password, account not found, insufficient balance, invalid amount
-4. **TRANSFER** — success, wrong password, sender not found, insufficient balance
-5. **At-most-once cache** — duplicate request ID returns identical cached response
-6. **CHECK_BALANCE** — success, wrong password, account not found
-7. **CLOSE_ACCOUNT** — success, wrong password, account not found
-
-### Monitor Test
-
-Listen for account update callbacks in a separate terminal:
-```bash
-python3 test_monitor.py [duration_secs]   # default: 30
-```
-
-Then run operations in another terminal to trigger callbacks. Each callback prints the triggering operation, account number, holder name, balance, currency, and event description.
-
 ## Implementation Details
 
 ### Marshalling/Unmarshalling
