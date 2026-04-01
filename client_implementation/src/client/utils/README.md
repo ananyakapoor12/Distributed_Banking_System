@@ -133,4 +133,3 @@ idempotent operations.
 | File | Description |
 |------|-------------|
 | `ExperimentRunner.java` | Runs all experiments and prints result tables |
-| `TestScenarios.java` | Manual test cases for individual operation scenarios |
