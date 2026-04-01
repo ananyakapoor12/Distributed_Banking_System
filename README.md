@@ -1,10 +1,126 @@
 
-Running the server : 
+# Distributed Banking System
 
-g++ -std=c++17 -DDEBUG -I$(brew --prefix sqlitecpp)/include -o server server.cpp marshaller.cpp account_store.cpp handlers.cpp -L$(brew --prefix sqlitecpp)/lib -lSQLiteCpp -lsqlite3 -lpthread -ldl
+A distributed banking application built for CE4013/CZ4013/SC4051 (NTU Distributed Systems). The system uses UDP sockets and demonstrates **at-least-once** and **at-most-once** invocation semantics under simulated packet loss.
 
-Use the -DDEBUG flag for debug messages printed to the terminal, remove for no output.
+The server is written in C++ and the client in Java; they communicate over a shared binary wire protocol.
 
-./server <port number> amo|alo
+## Project Structure
 
-amo or alo depending on the semantics
+```
+Distributed_Banking_System/
+├── server/                     # C++ UDP server + SQLite persistence
+│   ├── server.cpp              # Main event loop and request dispatch
+│   ├── handlers.cpp/h          # Per-opcode argument parsers
+│   ├── account_store.cpp/h     # SQLite-backed account CRUD
+│   ├── marshaller.cpp/h        # Binary serialisation helpers
+│   ├── udp_socket.cpp/h        # UDP send/receive abstraction
+│   ├── protocol.h              # Wire constants, enums, packet layout
+│   ├── test_all.py             # Automated Python test suite
+│   ├── test_monitor.py         # Monitor/callback test script
+│   └── README.md
+└── client_implementation/      # Java UDP client
+    ├── src/client/
+    │   ├── Main.java
+    │   ├── core/               # BankingClient, UDPClient
+    │   ├── protocol/           # Protocol constants, marshalling, message builders/parsers
+    │   ├── ui/                 # Interactive console UI
+    │   └── utils/              # Automated test scenarios
+    ├── build.sh / build.bat
+    └── README.md
+```
+
+## Supported Operations
+
+| Opcode | Operation     | Idempotent | Description                              |
+|--------|---------------|------------|------------------------------------------|
+| 1      | OPEN_ACCOUNT  | No         | Create a new account, returns account number |
+| 2      | CLOSE_ACCOUNT | No         | Close an existing account                |
+| 3      | DEPOSIT       | No         | Deposit funds, returns new balance       |
+| 4      | WITHDRAW      | No         | Withdraw funds, returns new balance      |
+| 5      | MONITOR       | —          | Register for real-time account callbacks |
+| 6      | TRANSFER      | No         | Transfer funds between accounts          |
+| 7      | CHECK_BALANCE | Yes        | Query current balance (read-only)        |
+
+## Invocation Semantics
+
+Both components must be started with the same semantics flag.
+
+**At-Most-Once (`amo`):**
+- Server caches responses keyed by `ip:port` + request ID
+- Duplicate requests return the cached reply without re-executing
+- Safe for non-idempotent operations (deposits, transfers, etc.) under packet loss
+
+**At-Least-Once (`alo`):**
+- Server re-executes every received packet — no deduplication
+- Non-idempotent operations may execute multiple times on retries
+- Idempotent operations (CHECK_BALANCE) are safe regardless
+
+## Wire Format
+
+**Request packet:**
+
+| Offset | Field       | Size  |
+|--------|-------------|-------|
+| 0      | msg_type    | 1 B   |
+| 1–16   | request_id  | 16 B  |
+| 17     | opcode      | 1 B   |
+| 18+    | arguments   | varies |
+
+**Response packet:**
+
+| Offset | Field       | Size  |
+|--------|-------------|-------|
+| 0      | msg_type    | 1 B   |
+| 1–16   | request_id  | 16 B  |
+| 17     | opcode      | 1 B   |
+| 18     | status      | 1 B   |
+| 19+    | body        | varies |
+
+**Callback packet (server → monitoring client):**
+
+| Offset | Field             | Size   |
+|--------|-------------------|--------|
+| 0      | msg_type (= 2)    | 1 B    |
+| 1      | trigger_opcode    | 1 B    |
+| 2      | account_num       | 4 B    |
+| 6      | holder_name       | 2+N B  |
+| …      | balance           | 4 B    |
+| …      | currency          | 1 B    |
+| …      | event_description | 2+N B  |
+
+### Supported Currencies
+
+`SGD` (0), `USD` (1), `INR` (2), `AUD` (3), `CNY` (4), `EUR` (5), `CAD` (6), `GBP` (7), `CHF` (8)
+
+## Monitoring
+
+Clients can register for server-initiated callbacks:
+
+1. Client sends a `MONITOR` request with a duration (seconds)
+2. Server registers the client's `ip:port` for that duration
+3. Server pushes a `CALLBACK` packet to all registered clients after every account operation
+4. Registration expires automatically after the requested duration
+
+**Demo setup:**
+- Terminal 1: Run the server
+- Terminal 2: Run a monitoring client (`MONITOR` request)
+- Terminal 3: Run a regular client making transactions
+- Terminal 2: Observe real-time callbacks
+
+## Quick Start
+
+See the component READMEs for build and run instructions:
+- **Server:** [server/README.md](server/README.md)
+- **Client:** [client_implementation/README.md](client_implementation/README.md)
+
+## Important Notes
+
+1. **Password length**: Maximum 8 bytes (enforced by the wire protocol)
+2. **Concurrency**: The server handles one request at a time (single-threaded, per specification)
+3. **Network**: Ensure UDP traffic is permitted through any firewall
+4. **Semantics must match**: Run the server and client with the same `amo`/`alo` flag
+
+---
+**NTU College of Computing and Data Science**
+**SC4051 Distributed Systems — Session 2025/2026 Semester 2**
