@@ -23,8 +23,8 @@ public class Main {
     
     public static void main(String[] args) {
         // Default configuration
-        String serverHost = "localhost";
-        //String serverHost = "10.91.181.242";
+        //String serverHost = "localhost";
+        String serverHost = "10.91.181.242";
         int serverPort = 2222;
         Protocol.Semantics semantics = Protocol.Semantics.AT_LEAST_ONCE;
         
