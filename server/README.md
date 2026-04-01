@@ -7,35 +7,36 @@
 **Compile:**
 ```bash
 g++ -std=c++17 -DDEBUG -I$(brew --prefix sqlitecpp)/include \
-    -o server server.cpp marshaller.cpp account_store.cpp handlers.cpp \
+    -o server server.cpp udp_socket.cpp marshaller.cpp account_store.cpp handlers.cpp \
     -L$(brew --prefix sqlitecpp)/lib -lSQLiteCpp -lsqlite3 -lpthread -ldl
 ```
 
 Remove `-DDEBUG` to suppress debug output:
 ```bash
 g++ -std=c++17 -I$(brew --prefix sqlitecpp)/include \
-    -o server server.cpp marshaller.cpp account_store.cpp handlers.cpp \
+    -o server server.cpp udp_socket.cpp marshaller.cpp account_store.cpp handlers.cpp \
     -L$(brew --prefix sqlitecpp)/lib -lSQLiteCpp -lsqlite3 -lpthread -ldl
 ```
 
 ### Running the Server
 
 ```bash
-./server <port> <amo|alo>
+./server <ip> <port> <at-most-once|at-least-once>
 ```
 
 **Examples:**
 ```bash
-# Run on port 8014 with at-most-once semantics
-./server 8014 amo
+# Run on 127.0.0.1:8014 with at-most-once semantics
+./server 127.0.0.1 8014 at-most-once
 
-# Run on port 2222 with at-least-once semantics
-./server 2222 alo
+# Run on 0.0.0.0:2222 with at-least-once semantics
+./server 0.0.0.0 2222 at-least-once
 ```
 
 ### Parameters
-- `port`: UDP port number to listen on (default: `8014`)
-- `amo|alo`: Invocation semantics — `amo` for at-most-once, `alo` for at-least-once
+- `ip`: IP address to bind to (e.g. `127.0.0.1` or `0.0.0.0` for all interfaces)
+- `port`: UDP port number to listen on
+- `at-most-once|at-least-once`: Invocation semantics
 
 ### Environment Variables
 - `DB_PATH`: Path to the SQLite database file (default: `banking.db`)
@@ -60,12 +61,12 @@ Clients registered via `MONITOR` receive server-initiated `CALLBACK` packets whe
 
 ## Invocation Semantics
 
-### At-Most-Once (`amo`)
+### At-Most-Once
 - The server caches responses keyed by `ip:port` + 16-byte request ID.
 - Duplicate requests return the cached reply without re-executing the operation.
 - Safe for non-idempotent operations (deposits, transfers, etc.) under packet loss.
 
-### At-Least-Once (`alo`)
+### At-Least-Once 
 - No caching — every received packet is executed.
 - Non-idempotent operations may execute multiple times if the client retries.
 - Idempotent operations (CHECK_BALANCE) are safe under retries.
@@ -108,43 +109,6 @@ All data is manually marshalled to byte arrays using network byte order (big-end
 - **Passwords**: Fixed 8 bytes (zero-padded if shorter)
 - **Enums**: Single byte values
 - **Request ID**: 16-byte UUID
-
-### Wire Format
-
-**Request packet:**
-
-| Offset | Field       | Size  |
-|--------|-------------|-------|
-| 0      | msg_type    | 1 B   |
-| 1–16   | request_id  | 16 B  |
-| 17     | opcode      | 1 B   |
-| 18+    | arguments   | varies |
-
-**Response packet:**
-
-| Offset | Field       | Size  |
-|--------|-------------|-------|
-| 0      | msg_type    | 1 B   |
-| 1–16   | request_id  | 16 B  |
-| 17     | opcode      | 1 B   |
-| 18     | status      | 1 B   |
-| 19+    | body        | varies |
-
-**Callback packet (server → monitoring client):**
-
-| Offset | Field             | Size   |
-|--------|-------------------|--------|
-| 0      | msg_type (= 2)    | 1 B    |
-| 1      | trigger_opcode    | 1 B    |
-| 2      | account_num       | 4 B    |
-| 6      | holder_name       | 2+N B  |
-| …      | balance           | 4 B    |
-| …      | currency          | 1 B    |
-| …      | event_description | 2+N B  |
-
-### Supported Currencies
-
-`SGD` (0), `USD` (1), `INR` (2), `AUD` (3), `CNY` (4), `EUR` (5), `CAD` (6), `GBP` (7), `CHF` (8)
 
 ### Source Files
 

@@ -4,7 +4,7 @@
 #include <chrono>
 #include <ctime>
 
-#include "udp_socket.cpp"   // included directly since UDPSocket is defined as a class inside the .cpp
+#include "udp_socket.h"
 #include "handlers.h"
 #include "marshaller.h"
 #include "account_store.h"
@@ -18,17 +18,21 @@
 
 int main(int argc, char* argv[])
 {
-    int port = 8014;
-    if (argc >= 2) port = std::atoi(argv[1]);
-
-    // Usage: ./server <port> <amo|alo>   (default: amo)
-    bool amo = true;
-    if (argc >= 3) {
-        std::string sem(argv[2]);
-        if (sem == "alo")      amo = false;
-        else if (sem == "amo") amo = true;
-        else { std::cerr << "Unknown semantics '" << sem << "'. Use 'amo' or 'alo'.\n"; return 1; }
+    // Usage: ./server <ip> <port> <amo|alo>
+    if (argc < 4) {
+        std::cerr << "Usage: " << argv[0] << " <ip> <port> <at-most-once|at-least-once>\n";
+        return 1;
     }
+
+    std::string ip(argv[1]);
+    int port = std::atoi(argv[2]);
+
+    bool amo = true;
+    std::string sem(argv[3]);
+    if (sem == "at-least-once")      amo = false;
+    else if (sem == "at-most-once") amo = true;
+    else { std::cerr << "Unknown semantics '" << sem << "'. Use 'at-most-once' or 'at-least-once'.\n"; return 1; }
+
     std::cout << "Invocation semantics: " << (amo ? "at-most-once" : "at-least-once") << std::endl;
 
     const char *db_env = std::getenv("DB_PATH");
@@ -37,7 +41,7 @@ int main(int argc, char* argv[])
 
     DBG("Starting server on port " << port);
 
-    UDPSocket sock(port);
+    UDPSocket sock(ip, port);
 
     // maintain cache for past requests (at-most-once): ip:port -> (request_id -> reply bytes)
     std::unordered_map<std::string, std::unordered_map<std::string, std::string>> prevRequestData;
