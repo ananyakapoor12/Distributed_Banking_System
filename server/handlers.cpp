@@ -17,35 +17,30 @@
 bool parse_header(const uint8_t* buf, int buf_len, int& offset, RequestHeader& out)
 {
     if (buf_len < (int)HEADER_SIZE)
-    {
-        std::cerr << "parse_header: packet too short ("
-                  << buf_len << " bytes)" << std::endl;
-        return false;
-    }
+        throw std::runtime_error("parse_header: packet too short ("
+                                 + std::to_string(buf_len) + " bytes)");
 
-    uint8_t raw_msg_type = read_byte(buf, offset, buf_len);
-    if (raw_msg_type > 2)
-    {
-        std::cerr << "parse_header: unknown message type " << (int)raw_msg_type << std::endl;
-        return false;
-    }
-    out.msg_type = static_cast<MessageType>(raw_msg_type);
+    try {
+        uint8_t raw_msg_type = read_byte(buf, offset, buf_len);
+        if (raw_msg_type > 2)
+            throw std::invalid_argument("parse_header: unknown message type "
+                                        + std::to_string((int)raw_msg_type));
+        out.msg_type = static_cast<MessageType>(raw_msg_type);
 
-    if (out.msg_type != MessageType::REQUEST)
-    {
-        std::cerr << "parse_header: unexpected message type "
-                  << (int)raw_msg_type << std::endl;
-        return false;
-    }
+        if (out.msg_type != MessageType::REQUEST)
+            throw std::invalid_argument("parse_header: unexpected message type "
+                                        + std::to_string((int)raw_msg_type));
 
-    read_request_id(buf, offset, buf_len, out.request_id);
-    uint8_t raw_opcode = read_byte(buf, offset, buf_len);
-    if (raw_opcode < 1 || raw_opcode > 7)
-    {
-        std::cerr << "parse_header: unknown opcode " << (int)raw_opcode << std::endl;
-        return false;
+        read_request_id(buf, offset, buf_len, out.request_id);
+
+        uint8_t raw_opcode = read_byte(buf, offset, buf_len);
+        if (raw_opcode < 1 || raw_opcode > 7)
+            throw std::invalid_argument("parse_header: unknown opcode "
+                                        + std::to_string((int)raw_opcode));
+        out.opcode = static_cast<Opcode>(raw_opcode);
+    } catch (const std::out_of_range& e) {
+        throw std::runtime_error(std::string("parse_header: truncated packet — ") + e.what());
     }
-    out.opcode = static_cast<Opcode>(raw_opcode);
     return true;
 }
 

@@ -1,8 +1,21 @@
 #pragma once
 
-#include <unordered_map>
 #include <string>
 #include "protocol.h"
+#include <SQLiteCpp/SQLiteCpp.h>
+
+// Currency codes — encoded as 1 byte on the wire.
+// Using a map instead of an enum so that unknown byte values can be
+// detected at runtime rather than silently becoming undefined behaviour.
+// #include <unordered_map>
+// inline const std::unordered_map<int, std::string> CURRENCY_NAMES = {
+//     {0, "SGD"}, {1, "USD"}, {2, "INR"}, {3, "AUD"}, {4, "CNY"},
+//     {5, "EUR"}, {6, "CAD"}, {7, "GBP"}, {8, "CHF"}
+// };
+
+// inline bool is_valid_currency(int raw) {
+//     return CURRENCY_NAMES.count(raw) > 0;
+// }
 
 enum class ErrorCode : uint8_t
 {
@@ -58,23 +71,14 @@ struct BankAccountBalance
     float value;
 };
 
-struct BankAccount
-{
-    int account_number;
-    std::string holder_name;
-    std::string password;
-    BankAccountBalance balance;
-};
-
 class AccountStore {
 public:
+    explicit AccountStore(const std::string &db_path);
+
     // Returns the new account number (>= 1) on success.
     // Returns -1 if balance <= 0 or currency code is not in CURRENCY_NAMES.
     Result<int> open_account(const std::string &name, const std::string &password,
                              Currency currency, float balance);
-
-    // Returns true if account_num exists, holder_name matches, and password matches.
-    bool auth(BankAccount acc, int account_num, const std::string &name, const std::string &password) const;
 
     Result<BankAccountBalance> close_account(int account_num, const std::string &name, const std::string &password);
 
@@ -87,6 +91,18 @@ public:
     Result<BankAccountBalance> transfer(int sender_account_num, const std::string &sender_name, const std::string &password, int receiver_account_num, const std::string &receiver_name, Currency currency, float amt);
 
 private:
-    std::unordered_map<int, BankAccount> accounts_;
-    int next_id_{1};
+    SQLite::Database db_;
+
+    void init_schema();
+
+    // Fetches a row by account_number. Returns false (sets out params to 0/"")
+    // if not found. Caller checks the return value.
+    bool fetch_account(int account_num,
+                       std::string &out_holder_name,
+                       std::string &out_password,
+                       Currency&out_currency,
+                       float &out_balance);
+
+    bool auth_row(const std::string &stored_name, const std::string &stored_password,
+                  const std::string &name, const std::string &password) const;
 };

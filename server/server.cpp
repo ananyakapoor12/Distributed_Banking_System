@@ -31,7 +31,9 @@ int main(int argc, char* argv[])
     }
     std::cout << "Invocation semantics: " << (amo ? "at-most-once" : "at-least-once") << std::endl;
 
-    AccountStore bank;
+    const char *db_env = std::getenv("DB_PATH");
+    std::string db_path = db_env ? db_env : "banking.db";
+    AccountStore bank(db_path);
 
     DBG("Starting server on port " << port);
 
@@ -100,18 +102,18 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        // parse header and get the opcode
-        if (req_buf_len < (ssize_t)HEADER_SIZE) {
-            std::cerr << "Packet too short (" << req_buf_len << " bytes), dropping." << std::endl;
+        // parse header and validate msg_type / opcode
+        int offset = 0;
+        RequestHeader header;
+        try {
+            parse_header(buf, req_buf_len, offset, header);
+        } catch (const std::exception& e) {
+            std::cerr << e.what() << std::endl;
             continue;
         }
-        int offset = 0;
-        MessageType msg_type = static_cast<MessageType>(buf[offset++]);
-        uint8_t request_id[REQUEST_ID_LEN];
-        memcpy(request_id, buf + offset, REQUEST_ID_LEN);
 
         // at-most-once: check if we've already processed this request ID
-        std::string req_id_key(reinterpret_cast<const char*>(request_id), REQUEST_ID_LEN);
+        std::string req_id_key(reinterpret_cast<const char*>(header.request_id), REQUEST_ID_LEN);
 
         if (amo) {
             auto ip_it = prevRequestData.find(ipPortStr);
@@ -126,12 +128,8 @@ int main(int argc, char* argv[])
             }
         }
 
-
-        offset += REQUEST_ID_LEN;
-        Opcode opcode = static_cast<Opcode>(buf[offset++]);
-        
         // parse and execute the request
-        switch (opcode) {
+        switch (header.opcode) {
             case Opcode::OPEN_ACCOUNT: { 
                 OpenAccountArgs args;
                 bool succ = parse_open_account(buf, req_buf_len, offset, args);
@@ -140,7 +138,7 @@ int main(int argc, char* argv[])
                 uint8_t reply[MAX_BUF_SIZE];
                 int res_offset = 0;
                 write_byte(reply, res_offset, (uint8_t)MessageType::RESPONSE);
-                write_request_id(reply, res_offset, request_id);
+                write_request_id(reply, res_offset, header.request_id);
                 write_byte(reply, res_offset, (uint8_t)Opcode::OPEN_ACCOUNT);
 
                 if (succ) {
@@ -178,7 +176,7 @@ int main(int argc, char* argv[])
                 uint8_t reply[MAX_BUF_SIZE];
                 int res_offset = 0;
                 write_byte(reply, res_offset, (uint8_t)MessageType::RESPONSE);
-                write_request_id(reply, res_offset, request_id);
+                write_request_id(reply, res_offset, header.request_id);
                 write_byte(reply, res_offset, (uint8_t)Opcode::CLOSE_ACCOUNT);
 
                 if (succ)
@@ -221,7 +219,7 @@ int main(int argc, char* argv[])
                 uint8_t reply[MAX_BUF_SIZE];
                 int res_offset = 0;
                 write_byte(reply, res_offset, (uint8_t)MessageType::RESPONSE);
-                write_request_id(reply, res_offset, request_id);
+                write_request_id(reply, res_offset, header.request_id);
                 write_byte(reply, res_offset, (uint8_t)Opcode::DEPOSIT);
 
                 if (succ)
@@ -278,7 +276,7 @@ int main(int argc, char* argv[])
                 uint8_t reply[MAX_BUF_SIZE];
                 int res_offset = 0;
                 write_byte(reply, res_offset, (uint8_t)MessageType::RESPONSE);
-                write_request_id(reply, res_offset, request_id);
+                write_request_id(reply, res_offset, header.request_id);
                 write_byte(reply, res_offset, (uint8_t)Opcode::WITHDRAW);
 
                 if (succ)
@@ -340,7 +338,7 @@ int main(int argc, char* argv[])
                 uint8_t reply[MAX_BUF_SIZE];
                 int res_offset = 0;
                 write_byte(reply, res_offset, (uint8_t)MessageType::RESPONSE);
-                write_request_id(reply, res_offset, request_id);
+                write_request_id(reply, res_offset, header.request_id);
                 write_byte(reply, res_offset, (uint8_t)Opcode::MONITOR);
                 if (succ)
                 {
@@ -348,7 +346,7 @@ int main(int argc, char* argv[])
                         write_byte(reply, res_offset, (uint8_t)Status::MONITOR_INTERVAL_INVALID);
                         write_string(reply, res_offset, "Monitor interval cannot be less than or equal to zero.");
                     } else {
-                        monitorClients[std::string(ipStr)] = {
+                        monitorClients[ipPortStr] = {
                             client_addr,
                             std::chrono::steady_clock::now() + std::chrono::seconds(args.duration)
                         };
@@ -370,7 +368,7 @@ int main(int argc, char* argv[])
                 }
                 sock.send_to(reply, res_offset, client_addr);
                 
-                prevRequestData[ipPortStr][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
+                // prevRequestData[ipPortStr][req_id_key] = std::string(reinterpret_cast<char*>(reply), res_offset);
                 
                 break;
             }
@@ -383,7 +381,7 @@ int main(int argc, char* argv[])
                 uint8_t reply[MAX_BUF_SIZE];
                 int res_offset = 0;
                 write_byte(reply, res_offset, (uint8_t)MessageType::RESPONSE);
-                write_request_id(reply, res_offset, request_id);
+                write_request_id(reply, res_offset, header.request_id);
                 write_byte(reply, res_offset, (uint8_t)Opcode::TRANSFER);
                 if (succ)
                 {
@@ -459,7 +457,7 @@ int main(int argc, char* argv[])
                 uint8_t reply[MAX_BUF_SIZE];
                 int res_offset = 0;
                 write_byte(reply, res_offset, (uint8_t)MessageType::RESPONSE);
-                write_request_id(reply, res_offset, request_id);
+                write_request_id(reply, res_offset, header.request_id);
                 write_byte(reply, res_offset, (uint8_t)Opcode::CHECK_BALANCE);
 
                 if (succ)
@@ -496,7 +494,7 @@ int main(int argc, char* argv[])
                 break;
             }
             default:
-                std::cerr << "Unknown opcode: " << (int)buf[17] << ", dropping." << std::endl;
+                std::cerr << "Unknown opcode: " << (int)header.opcode << ", dropping." << std::endl;
                 continue;
         }
 
